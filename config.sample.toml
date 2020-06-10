@@ -1,0 +1,24 @@
+# Destination path for writing the service discovery file
+destination = "./out.json"
+
+# How prometheus should talk to the target.
+# You can either select an IPv4, IPv6, the hostname, or a label.
+# Defaults to IPv6.
+# target = "IPv4"
+# target = "IPv6"
+# target = "host"
+# target = { label = "prometheus-target" }
+
+# Array of projects
+[[ projects ]]
+
+# Name of the project (only used for logging purposes when stuff goes wrong)
+name = "test"
+
+# Hetzner limits API tokens to projects, so you have to specify one per project
+api_token = "your_hetzner_cloud_api_token_for_this_project"
+
+# Additional labels to put into the service discovery file for the hosts of this project
+[ projects.labels ]
+extra = "labels"
+go = "here"
