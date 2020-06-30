@@ -9,6 +9,7 @@ use hcloud::apis::{
     configuration::Configuration as HcloudConfig, list_servers, ServersApiListServers,
 };
 
+use regex::Regex;
 use serde::Deserialize;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
@@ -124,7 +125,7 @@ async fn main() -> anyhow::Result<()> {
                                 .nth(1)
                                 .unwrap()
                                 .to_string(),
-                            Target::Host => server.name,
+                            Target::Host => server.name.clone(),
                             Target::Label(name) => server
                                 .labels
                                 .get(name)
@@ -137,7 +138,21 @@ async fn main() -> anyhow::Result<()> {
                         }],
                         labels: {
                             let mut labels = project.labels.clone();
-                            labels.extend(server.labels);
+                            labels.extend(server.labels.clone());
+                            labels.retain(|k, _| {
+                                lazy_static::lazy_static! {
+                                    static ref RE: Regex = Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
+                                }
+                                let is_match = RE.is_match(&k);
+                                if !is_match {
+                                    log::warn!("Label key {} on host {} is not a valid label key \
+                                               and will therefore not be included in the labels \
+                                               in the file_sd file", k, server.name);
+                                } else {
+                                    log::debug!("Label key {} on host {} is a valid label key", k, server.name);
+                                }
+                                is_match
+                            });
                             labels
                         },
                     });
