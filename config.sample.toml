@@ -2,12 +2,11 @@
 destination = "./out.json"
 
 # How prometheus should talk to the target.
-# You can either select an IPv4, IPv6, the hostname, or a label.
-# Defaults to IPv6.
-# target = "IPv4"
-# target = "IPv6"
-# target = "host"
-# target = { label = "prometheus-target" }
+# This is a tera template, having ipv4/6, hostname and the hosts labels as context.
+# target = "{{ ipv4 }}:8080"
+# target = "{{ hostname }}:8080"
+# target = "{{ labels.metrics_endpoint }}"
+target = "{{ hostname }}:8080"
 
 # Array of projects
 [[ projects ]]

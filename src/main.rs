@@ -1,74 +1,23 @@
 mod cli;
+mod config;
 mod logging;
 mod prometheus;
 
-use anyhow::Context;
-use thiserror::Error;
+use crate::config::read_conf;
 
-use hcloud::apis::{
-    configuration::Configuration as HcloudConfig, list_servers, ServersApiListServers,
+use anyhow::Context;
+
+use hcloud::{
+    apis::{configuration::Configuration as HcloudConfig, list_servers, ServersApiListServers},
+    models::Server,
 };
 
 use regex::Regex;
-use serde::Deserialize;
+
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
 };
-
-#[derive(Deserialize)]
-struct Config {
-    destination: String,
-    #[serde(default = "Target::ipv6")]
-    target: Target,
-    projects: Vec<Project>,
-}
-
-#[derive(Deserialize)]
-enum Target {
-    #[serde(rename = "IPv4")]
-    Ipv4,
-    #[serde(rename = "IPv6")]
-    Ipv6,
-    #[serde(rename = "host")]
-    Host,
-    #[serde(rename = "label")]
-    Label(String),
-}
-
-#[allow(dead_code)]
-impl Target {
-    fn ipv4() -> Self {
-        Self::Ipv4
-    }
-
-    fn ipv6() -> Self {
-        Self::Ipv6
-    }
-
-    fn host() -> Self {
-        Self::Host
-    }
-
-    fn label(label: String) -> Self {
-        Self::Label(label)
-    }
-}
-
-#[derive(Deserialize)]
-struct Project {
-    name: String,
-    api_token: String,
-    labels: HashMap<String, String>,
-}
-
-#[derive(Error, Debug)]
-#[error("target label {label} not found for host {host} in project {project}")]
-struct TargetLabelMissing {
-    label: String,
-    host: String,
-    project: String,
-}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -81,11 +30,12 @@ async fn main() -> anyhow::Result<()> {
         _ => log::LevelFilter::Trace,
     });
 
-    let conf_path = cli_matches.value_of("config").unwrap_or("./config.toml");
-    let conf_file = std::fs::read_to_string(conf_path).context("Couldn't read config file")?;
-    let config: Config = toml::from_str(&conf_file).context("Couldn't parse config file")?;
-
+    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.toml"))?;
     log::debug!("read and parsed config file");
+
+    let mut tera = tera::Tera::default();
+    tera.add_raw_template("target", &config.target)
+        .context("Couldn't load target template")?;
 
     let mut hash = 0u64;
 
@@ -98,62 +48,18 @@ async fn main() -> anyhow::Result<()> {
             let mut entries = Vec::new();
 
             for project in &config.projects {
-                let mut hcloud_config = HcloudConfig::new();
-                hcloud_config.bearer_access_token = Some(project.api_token.clone());
-
-                let servers_resp = list_servers(
-                    &hcloud_config,
-                    ServersApiListServers {
-                        status: None,
-                        sort: None,
-                        name: None,
-                        label_selector: None,
-                    },
-                )
-                .await
-                .with_context(|| format!("Fetching servers failed for project {}", project.name))?;
-
-                for server in servers_resp.servers {
+                let servers = load_server_list(project.api_token.clone(), &project.name).await?;
+                for server in servers {
                     entries.push(prometheus::FileSdEntry {
-                        targets: vec![match &config.target {
-                            Target::Ipv4 => server.public_net.ipv4.ip.to_string(),
-                            Target::Ipv6 => server
-                                .public_net
-                                .ipv6
-                                .ip
-                                .hosts()
-                                .nth(1)
-                                .unwrap()
-                                .to_string(),
-                            Target::Host => server.name.clone(),
-                            Target::Label(name) => server
-                                .labels
-                                .get(name)
-                                .ok_or_else(|| TargetLabelMissing {
-                                    label: name.to_string(),
-                                    host: server.name.clone(),
-                                    project: project.name.clone(),
-                                })?
-                                .to_string(),
-                        }],
+                        targets: vec![tera
+                            .render("target", &build_server_template_context(&server))
+                            .with_context(|| {
+                                format!("Couldn't render target string for host {}", server.name)
+                            })?],
                         labels: {
                             let mut labels = project.labels.clone();
                             labels.extend(server.labels.clone());
-                            labels.retain(|k, _| {
-                                lazy_static::lazy_static! {
-                                    static ref RE: Regex = Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
-                                }
-                                let is_match = RE.is_match(&k);
-                                if !is_match {
-                                    log::warn!("Label key {} on host {} is not a valid label key \
-                                               and will therefore not be included in the labels \
-                                               in the file_sd file", k, server.name);
-                                } else {
-                                    log::debug!("Label key {} on host {} is a valid label key", k, server.name);
-                                }
-                                is_match
-                            });
-                            labels
+                            filter_labels(labels, &server.name)
                         },
                     });
                 }
@@ -177,4 +83,70 @@ async fn main() -> anyhow::Result<()> {
             Err(error) => log::error!("service discovery failed: {:?}", error),
         };
     }
+}
+
+async fn load_server_list(token: String, name: &str) -> anyhow::Result<Vec<Server>> {
+    let mut hcloud_config = HcloudConfig::new();
+    hcloud_config.bearer_access_token = Some(token);
+
+    let servers_resp = list_servers(
+        &hcloud_config,
+        ServersApiListServers {
+            status: None,
+            sort: None,
+            name: None,
+            label_selector: None,
+        },
+    )
+    .await
+    .with_context(|| format!("Fetching servers failed for project {}", name))?;
+    Ok(servers_resp.servers)
+}
+
+fn build_server_template_context(server: &Server) -> tera::Context {
+    let mut context = tera::Context::new();
+    context.insert("ipv4", &server.public_net.ipv4.ip.to_string());
+    context.insert(
+        "ipv6",
+        &server
+            .public_net
+            .ipv6
+            .ip
+            .hosts()
+            .nth(1)
+            .unwrap()
+            .to_string(),
+    );
+    context.insert("hostname", &server.name);
+    context.insert("labels", &server.labels);
+    context
+}
+
+fn filter_labels(
+    mut labels: HashMap<String, String>,
+    server_name: &str,
+) -> HashMap<String, String> {
+    labels.retain(|k, _| {
+        lazy_static::lazy_static! {
+            static ref RE: Regex = Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
+        }
+        let is_match = RE.is_match(&k);
+        if !is_match {
+            log::warn!(
+                "Label key {} on host {} is not a valid label key \
+                       and will therefore not be included in the labels \
+                       in the file_sd file",
+                k,
+                server_name
+            );
+        } else {
+            log::debug!(
+                "Label key {} on host {} is a valid label key",
+                k,
+                server_name
+            );
+        }
+        is_match
+    });
+    labels
 }
