@@ -5,9 +5,10 @@ use std::collections::HashMap;
 
 #[derive(Deserialize)]
 pub struct Config {
-    pub destination: String,
+    pub output_folder: String,
     pub target: String,
     pub projects: Vec<Project>,
+    pub filters: Vec<Vec<Filter>>,
 }
 
 #[derive(Deserialize)]
@@ -15,6 +16,12 @@ pub struct Project {
     pub name: String,
     pub api_token: String,
     pub labels: HashMap<String, String>,
+}
+
+#[derive(Deserialize)]
+pub enum Filter {
+    Label { name: String },
+    LabelValue { name: String, value: String },
 }
 
 pub(crate) fn read_conf(path: &str) -> Result<Config> {

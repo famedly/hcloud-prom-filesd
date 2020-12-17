@@ -3,7 +3,7 @@ mod config;
 mod logging;
 mod prometheus;
 
-use crate::config::read_conf;
+use crate::config::{read_conf, Filter};
 
 use anyhow::Context;
 
@@ -37,6 +37,8 @@ async fn main() -> anyhow::Result<()> {
     tera.add_raw_template("target", &config.target)
         .context("Couldn't load target template")?;
 
+    std::fs::create_dir_all(&config.output_folder)?;
+
     let mut hash = 0u64;
 
     let mut interval = tokio::time::interval(std::time::Duration::from_secs(60));
@@ -48,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
             let mut entries = Vec::new();
 
             for project in &config.projects {
-                let servers = load_server_list(project.api_token.clone(), &project.name).await?;
+                let servers = load_server_list(&project.api_token, &project.name).await?;
                 for server in servers {
                     entries.push(prometheus::FileSdEntry {
                         targets: vec![tera
@@ -58,7 +60,7 @@ async fn main() -> anyhow::Result<()> {
                             })?],
                         labels: {
                             let mut labels = project.labels.clone();
-                            labels.extend(server.labels.clone());
+                            labels.extend(server.labels);
                             filter_labels(labels, &server.name)
                         },
                     });
@@ -72,7 +74,17 @@ async fn main() -> anyhow::Result<()> {
 
             if hash != new_hash {
                 log::info!("services changed, attemting to write new sd file");
-                std::fs::write(&config.destination, sd_content.as_bytes())?;
+                std::fs::write(
+                    &format!("{}/all.json", &config.output_folder),
+                    sd_content.as_bytes(),
+                )?;
+                for filter_list in &config.filters {
+                    let additional_outputs =
+                        fan_out_entries(entries.to_vec(), &filter_list, &config.output_folder);
+                    for (path, entries) in additional_outputs {
+                        std::fs::write(path, serde_json::to_string(&entries)?.as_bytes())?;
+                    }
+                }
                 hash = new_hash
             }
             Ok::<(), anyhow::Error>(())
@@ -85,9 +97,56 @@ async fn main() -> anyhow::Result<()> {
     }
 }
 
-async fn load_server_list(token: String, name: &str) -> anyhow::Result<Vec<Server>> {
+fn fan_out_entries(
+    entries: Vec<prometheus::FileSdEntry>,
+    filters: &[Filter],
+    path: &str,
+) -> HashMap<String, Vec<prometheus::FileSdEntry>> {
+    match filters.len() {
+        0 => {
+            let mut map = HashMap::new();
+            map.insert(format!("{}.json", path), entries);
+            map
+        }
+        _ => match &filters[0] {
+            Filter::Label { name } => {
+                let mut value_entries: HashMap<String, Vec<prometheus::FileSdEntry>> =
+                    HashMap::new();
+                for entry in entries {
+                    if let Some(value) = entry.labels.get(name) {
+                        if let Some(entries) = value_entries.get_mut(value) {
+                            entries.push(entry);
+                        } else {
+                            value_entries.insert(value.to_string(), vec![entry]);
+                        }
+                    }
+                }
+                let mut ret_val = HashMap::new();
+                for (value, entries) in value_entries {
+                    let new_path = format!("{}/{}-{}", path, name, value);
+                    ret_val.extend(fan_out_entries(entries, &filters[1..], &new_path));
+                }
+                return ret_val;
+            }
+            Filter::LabelValue { name, value } => {
+                let new_path = format!("{}/{}-{}", path, name, value);
+                let mut new_entries = Vec::new();
+                for entry in entries {
+                    if let Some(actual_value) = entry.labels.get(name) {
+                        if actual_value == value {
+                            new_entries.push(entry);
+                        }
+                    }
+                }
+                return fan_out_entries(new_entries, &filters[1..], &new_path);
+            }
+        },
+    }
+}
+
+async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>> {
     let mut hcloud_config = HcloudConfig::new();
-    hcloud_config.bearer_access_token = Some(token);
+    hcloud_config.bearer_access_token = Some(token.to_string());
 
     let servers_resp = list_servers(
         &hcloud_config,

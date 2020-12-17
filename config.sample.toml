@@ -1,5 +1,5 @@
-# Destination path for writing the service discovery file
-destination = "./out.json"
+# Destination path for writing the service discovery files
+output_folder = "./out"
 
 # How prometheus should talk to the target.
 # This is a tera template, having ipv4/6, hostname and the hosts labels as context.
@@ -7,6 +7,13 @@ destination = "./out.json"
 # target = "{{ hostname }}:8080"
 # target = "{{ labels.metrics_endpoint }}"
 target = "{{ hostname }}:8080"
+
+# Filters for additional service discovery files
+# This is a list of lists: For each inner list in the outer list, the labels and values will create a new segment in the path,
+# where the segment is of the format /${label}-${value}. So, in this case, for each value of the label "special",
+# a file in out with the name special-${value}.json with the respective entries would be created.
+# filters = [ [ { Label = { name = "special" } } ] ]
+filters = []
 
 # Array of projects
 [[ projects ]]
