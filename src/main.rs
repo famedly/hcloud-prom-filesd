@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
         _ => log::LevelFilter::Trace,
     });
 
-    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.toml"))?;
+    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.yaml"))?;
     log::debug!("read and parsed config file");
 
     let mut tera = tera::Tera::default();

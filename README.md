@@ -12,8 +12,8 @@ cargo install --git https://gitlab.com/famedly/tools/hcloud-prom-filesd.git
 
 ## Usage
 
-Create a config file (see `config.sample.toml` in the repository root).
-Then run `hcloud-prom-filesd --config path/to/config.toml`.
+Create a config file (see `config.sample.yaml` in the repository root).
+Then run `hcloud-prom-filesd --config path/to/config.yaml`.
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
