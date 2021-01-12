@@ -12,7 +12,7 @@ use hcloud::{
         configuration::Configuration as HcloudConfig,
         servers_api::{list_servers, ListServersParams},
     },
-    models::Server,
+    models::{meta::Meta, pagination::Pagination, Server},
 };
 
 use regex::Regex;
@@ -21,6 +21,8 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
 };
+
+use log::{trace};
 
 use ipnet::Ipv6Net;
 
@@ -165,7 +167,36 @@ async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>
     )
     .await
     .with_context(|| format!("Fetching servers failed for project {}", name))?;
-    Ok(servers_resp.servers)
+    trace!("{:?}", servers_resp.meta.clone());
+    let mut servers = servers_resp.servers;
+    if let Some(Meta {
+        pagination:
+            Some(Pagination {
+                last_page: Some(last_page),
+                ..
+            }),
+        ..
+    }) = servers_resp.meta
+    {
+        for i in 2..=last_page {
+            let mut servers_resp = list_servers(
+                &hcloud_config,
+                ListServersParams {
+                    status: None,
+                    sort: None,
+                    name: None,
+                    label_selector: None,
+                    page: Some(i),
+                    per_page: None,
+                },
+            )
+            .await
+            .with_context(|| format!("Fetching servers (page)failed for project {}", name))?;
+            trace!("{:?}", servers_resp.meta.clone());
+            servers.append(&mut servers_resp.servers);
+        }
+    }
+    Ok(servers)
 }
 
 fn build_server_template_context(server: &Server) -> tera::Context {
