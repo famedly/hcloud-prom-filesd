@@ -374,15 +374,14 @@ dependencies = [
 
 [[package]]
 name = "hcloud"
-version = "0.2.2"
-source = "git+https://gitlab.com/famedly/libraries/hcloud-rs.git?tag=v0.2.2#b09b5fbd3fdba1eb60217d446772753a077653f3"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16f8c595f0229c55823d7d9103c57106ecf7ebb05548f64c579bc3371734d15d"
 dependencies = [
- "ipnet",
  "reqwest",
  "serde",
  "serde_derive",
  "serde_json",
- "thiserror",
  "url",
 ]
 
@@ -395,6 +394,7 @@ dependencies = [
  "clap",
  "fern",
  "hcloud",
+ "ipnet",
  "lazy_static",
  "log",
  "regex",
@@ -536,9 +536,6 @@ name = "ipnet"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "itoa"
@@ -1191,26 +1188,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d326610f408c7a4eb6f51c37c330e496b08506c9457c9d34287ecc38809fb060"
 dependencies = [
  "unicode-width",
-]
-
-[[package]]
-name = "thiserror"
-version = "1.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b13f926965ad00595dd129fa12823b04bbf866e9085ab0a5f2b05b850fbfc344"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "1.0.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "893582086c2f98cde18f906265a65b5030a074b1046c674ae898be6519a7f479"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

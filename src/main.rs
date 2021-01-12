@@ -8,7 +8,10 @@ use crate::config::{read_conf, Filter};
 use anyhow::Context;
 
 use hcloud::{
-    apis::{configuration::Configuration as HcloudConfig, list_servers, ServersApiListServers},
+    apis::{
+        configuration::Configuration as HcloudConfig,
+        servers_api::{list_servers, ListServersParams},
+    },
     models::Server,
 };
 
@@ -18,6 +21,8 @@ use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
 };
+
+use ipnet::Ipv6Net;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -147,14 +152,15 @@ fn fan_out_entries(
 async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>> {
     let mut hcloud_config = HcloudConfig::new();
     hcloud_config.bearer_access_token = Some(token.to_string());
-
     let servers_resp = list_servers(
         &hcloud_config,
-        ServersApiListServers {
+        ListServersParams {
             status: None,
             sort: None,
             name: None,
             label_selector: None,
+            page: None,
+            per_page: None,
         },
     )
     .await
@@ -171,6 +177,8 @@ fn build_server_template_context(server: &Server) -> tera::Context {
             .public_net
             .ipv6
             .ip
+            .parse::<Ipv6Net>()
+            .unwrap()
             .hosts()
             .nth(1)
             .unwrap()
