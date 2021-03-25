@@ -22,7 +22,7 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-use log::{trace};
+use log::trace;
 
 use ipnet::Ipv6Net;
 
