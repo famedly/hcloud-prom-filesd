@@ -69,7 +69,7 @@ async fn main() -> anyhow::Result<()> {
                 }
             }
 
-            let sd_content = serde_json::to_string(&entries)?;
+            let sd_content = serde_json::to_string_pretty(&entries)?;
             let mut hasher = DefaultHasher::new();
             sd_content.hash(&mut hasher);
             let new_hash = hasher.finish();
@@ -84,7 +84,7 @@ async fn main() -> anyhow::Result<()> {
                     let additional_outputs =
                         fan_out_entries(entries.to_vec(), &filter_list, &config.output_folder);
                     for (path, entries) in additional_outputs {
-                        std::fs::write(path, serde_json::to_string(&entries)?.as_bytes())?;
+                        std::fs::write(path, serde_json::to_string_pretty(&entries)?.as_bytes())?;
                     }
                 }
                 hash = new_hash
