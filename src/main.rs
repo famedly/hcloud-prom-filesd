@@ -125,7 +125,11 @@ fn fan_out_entries(
                 }
                 let mut ret_val = HashMap::new();
                 for (value, entries) in value_entries {
-                    let new_path = format!("{}/{}-{}", path, name, value);
+                    let new_path = if value != "" {
+                        format!("{}/{}-{}", path, name, value)
+                    } else {
+                        format!("{}/{}", path, name)
+                    };
                     ret_val.extend(fan_out_entries(entries, &filters[1..], &new_path));
                 }
                 return ret_val;
