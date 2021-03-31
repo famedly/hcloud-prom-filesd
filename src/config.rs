@@ -1,10 +1,12 @@
 use anyhow::{Context, Result};
+use log::LevelFilter;
 use serde::Deserialize;
 
 use std::collections::HashMap;
 
 #[derive(Deserialize)]
 pub struct Config {
+    pub log_level: Option<LevelFilter>,
     pub output_folder: String,
     pub target: String,
     pub projects: Vec<Project>,

@@ -29,16 +29,11 @@ use ipnet::Ipv6Net;
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli_matches = cli::setup_cli();
-    logging::setup_logging(match cli_matches.occurrences_of("v") {
-        0 => log::LevelFilter::Error,
-        1 => log::LevelFilter::Warn,
-        2 => log::LevelFilter::Info,
-        3 => log::LevelFilter::Debug,
-        _ => log::LevelFilter::Trace,
-    });
+    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.yaml"))
+        .context("couldn't read config file")?;
+    logging::setup_logging(config.log_level.unwrap_or(log::LevelFilter::Warn));
 
-    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.yaml"))?;
-    log::debug!("read and parsed config file");
+    log::debug!("read and parsed config file, configured logging");
 
     let mut tera = tera::Tera::default();
     tera.add_raw_template("target", &config.target)

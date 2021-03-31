@@ -11,7 +11,7 @@ clap = "2.33.1"
 tokio = { version = "0.2.21", features = ["macros", "rt-threaded", "time"] }
 chrono = "0.4.11"
 fern = "0.6.0"
-log = "0.4.8"
+log = { version = "0.4.8", features = ["serde"] }
 serde = { version = "1.0.111", features = ["derive"] }
 hcloud = "0.3.0"
 serde_json = "1.0.55"

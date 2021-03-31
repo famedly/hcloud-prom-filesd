@@ -16,6 +16,8 @@ target: '{{ hostname }}:8080'
 # Destination path for writing the service discovery files
 output_folder: ./out
 
+# Optional log level override. Defaults to warn
+# log_level: warn
 
 # Filters for additional service discovery files
 # This is a list of lists: For each inner list in the outer list, the labels and values will create a new segment in the path,
