@@ -21,6 +21,7 @@ pub struct Project {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Filter {
     Label { name: String },
     LabelValue { name: String, value: String },
