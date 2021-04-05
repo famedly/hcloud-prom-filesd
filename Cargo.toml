@@ -7,17 +7,17 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-clap = "2.33.1"
-tokio = { version = "0.2.21", features = ["macros", "rt-threaded", "time"] }
-chrono = "0.4.11"
+clap = "2.33.3"
+tokio = { version = "1.4.0", features = ["macros", "rt-multi-thread", "time"] }
+chrono = "0.4.19"
 fern = "0.6.0"
-log = { version = "0.4.8", features = ["serde"] }
-serde = { version = "1.0.111", features = ["derive"] }
-hcloud = "0.3.0"
-serde_json = "1.0.55"
-anyhow = "1.0.31"
-regex = "1.3.9"
+log = { version = "0.4.14", features = ["serde"] }
+serde = { version = "1.0.125", features = ["derive"] }
+hcloud = "0.4.0"
+serde_json = "1.0.64"
+anyhow = "1.0.40"
+regex = "1.4.5"
 lazy_static = "1.4.0"
-tera = "1.5.0"
-serde_yaml = "0.8.14"
+tera = "1.7.0"
+serde_yaml = "0.8.17"
 ipnet = "2.3.0"
