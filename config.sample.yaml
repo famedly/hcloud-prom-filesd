@@ -23,5 +23,5 @@ output_folder: ./out
 # This is a list of lists: For each inner list in the outer list, the labels and values will create a new segment in the path,
 # where the segment is of the format /${label}-${value}. So, in this case, for each value of the label "special",
 # a file in out with the name special-${value}.json with the respective entries would be created.
-# filters: [ [ { label: { name: "special" } } ] ]
+# filters: [ [ "special" ] ]
 filters: []

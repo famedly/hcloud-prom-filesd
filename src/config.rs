@@ -10,7 +10,7 @@ pub struct Config {
     pub output_folder: String,
     pub target: String,
     pub projects: Vec<Project>,
-    pub filters: Vec<Vec<Filter>>,
+    pub filters: Vec<Vec<String>>,
 }
 
 #[derive(Deserialize)]
@@ -18,13 +18,6 @@ pub struct Project {
     pub name: String,
     pub api_token: String,
     pub labels: HashMap<String, String>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum Filter {
-    Label { name: String },
-    LabelValue { name: String, value: String },
 }
 
 pub(crate) fn read_conf(path: &str) -> Result<Config> {

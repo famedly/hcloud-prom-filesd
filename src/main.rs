@@ -3,7 +3,7 @@ mod config;
 mod logging;
 mod prometheus;
 
-use crate::config::{read_conf, Filter};
+use crate::config::read_conf;
 
 use anyhow::Context;
 
@@ -25,6 +25,8 @@ use std::{
 use log::trace;
 
 use ipnet::Ipv6Net;
+
+use itertools::Itertools;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -76,15 +78,28 @@ async fn main() -> anyhow::Result<()> {
 
             if hash != new_hash {
                 log::info!("services changed, attemting to write new sd file");
-                std::fs::write(
-                    &format!("{}/all.json", &config.output_folder),
-                    sd_content.as_bytes(),
+                let path = &format!("{}/all.json", &config.output_folder);
+                let path = std::path::Path::new(path);
+                std::fs::create_dir_all(
+                    path.parent()
+                        .context("something went wrong generating the path, parent not found")?,
                 )?;
+                std::fs::write(path, sd_content.as_bytes())?;
                 for filter_list in &config.filters {
                     let additional_outputs =
                         fan_out_entries(entries.to_vec(), &filter_list, &config.output_folder);
                     for (path, entries) in additional_outputs {
-                        std::fs::write(path, serde_json::to_string_pretty(&entries)?.as_bytes())?;
+                        let path = std::path::Path::new(&path);
+                        std::fs::create_dir_all(path.parent().context(
+                            "something went wrong generating the path, parent not found",
+                        )?)?;
+                        std::fs::write(
+                            path,
+                            serde_json::to_string_pretty(&entries)
+                                .context("failed to serialize service discovery file")?
+                                .as_bytes(),
+                        )
+                        .context("failed to write service discovery file")?;
                     }
                 }
                 hash = new_hash
@@ -101,7 +116,7 @@ async fn main() -> anyhow::Result<()> {
 
 fn fan_out_entries(
     entries: Vec<prometheus::FileSdEntry>,
-    filters: &[Filter],
+    filters: &[String],
     path: &str,
 ) -> HashMap<String, Vec<prometheus::FileSdEntry>> {
     match filters.len() {
@@ -110,43 +125,82 @@ fn fan_out_entries(
             map.insert(format!("{}.json", path), entries);
             map
         }
-        _ => match &filters[0] {
-            Filter::Label { name } => {
-                let mut value_entries: HashMap<String, Vec<prometheus::FileSdEntry>> =
-                    HashMap::new();
-                for entry in entries {
-                    if let Some(value) = entry.labels.get(name) {
-                        if let Some(entries) = value_entries.get_mut(value) {
-                            entries.push(entry);
-                        } else {
-                            value_entries.insert(value.to_string(), vec![entry]);
-                        }
-                    }
-                }
-                let mut ret_val = HashMap::new();
-                for (value, entries) in value_entries {
-                    let new_path = if value != "" {
-                        format!("{}/{}-{}", path, name, value)
+        _ => {
+            let name = &filters[0];
+            let values: Vec<String> = entries
+                .iter()
+                .map(|o| o.labels.get(name).map(|o| o.to_string()))
+                .flatten()
+                .dedup()
+                .collect();
+            let mut value_entries: HashMap<LabelGroup, Vec<prometheus::FileSdEntry>> =
+                HashMap::new();
+            for entry in entries {
+                let value = entry.labels.get(name).map(|o| o.to_string());
+                for group in LabelGroup::groups(value, &values) {
+                    if let Some(entries) = value_entries.get_mut(&group) {
+                        entries.push(entry.clone());
                     } else {
-                        format!("{}/{}", path, name)
-                    };
-                    ret_val.extend(fan_out_entries(entries, &filters[1..], &new_path));
-                }
-                return ret_val;
-            }
-            Filter::LabelValue { name, value } => {
-                let new_path = format!("{}/{}-{}", path, name, value);
-                let mut new_entries = Vec::new();
-                for entry in entries {
-                    if let Some(actual_value) = entry.labels.get(name) {
-                        if actual_value == value {
-                            new_entries.push(entry);
-                        }
+                        value_entries.insert(group, vec![entry.clone()]);
                     }
                 }
-                return fan_out_entries(new_entries, &filters[1..], &new_path);
             }
-        },
+            let mut ret_val = HashMap::new();
+            for (group, entries) in value_entries {
+                let new_path = match group {
+                    LabelGroup::Value(value) => format!("{}/{}-is-{}", path, name, value),
+                    LabelGroup::NotValue(value) => format!("{}/{}-is-not-{}", path, name, value),
+                    LabelGroup::Set => format!("{}/{}-is-set", path, name),
+                    LabelGroup::Empty => format!("{}/{}-is-empty", path, name),
+                    LabelGroup::Unset => format!("{}/{}-is-not-set", path, name),
+                };
+                ret_val.extend(fan_out_entries(entries, &filters[1..], &new_path));
+            }
+            return ret_val;
+        }
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Debug)]
+enum LabelGroup {
+    Value(String),
+    NotValue(String),
+    Set,
+    Empty,
+    Unset,
+}
+
+impl LabelGroup {
+    fn groups(value: Option<String>, values: &[String]) -> Vec<LabelGroup> {
+        let mut groups = vec![];
+        match value {
+            None => {
+                groups.push(LabelGroup::Unset);
+            }
+            Some(ref value) => {
+                if value == "" {
+                    groups.push(LabelGroup::Set);
+                    groups.push(LabelGroup::Empty);
+                } else {
+                    groups.push(LabelGroup::Set);
+                    groups.push(LabelGroup::Value(value.to_string()));
+                    groups.append(
+                        &mut values
+                            .iter()
+                            .filter(|&o| o != value)
+                            .map(|o| LabelGroup::NotValue(o.to_string()))
+                            .collect(),
+                    );
+                }
+            }
+        }
+        trace!(
+            "value groups for {:?} with values {:?} are {:?}",
+            &value,
+            values,
+            groups
+        );
+        groups
     }
 }
 
