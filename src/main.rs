@@ -12,7 +12,7 @@ use hcloud::{
         configuration::Configuration as HcloudConfig,
         servers_api::{list_servers, ListServersParams},
     },
-    models::{meta::Meta, pagination::Pagination, Server},
+    models::Server,
 };
 
 use regex::Regex;
@@ -222,15 +222,13 @@ async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>
     .with_context(|| format!("Fetching servers failed for project {}", name))?;
     trace!("{:?}", servers_resp.meta.clone());
     let mut servers = servers_resp.servers;
-    if let Some(Meta {
-        pagination:
-            Some(Pagination {
-                last_page: Some(last_page),
-                ..
-            }),
-        ..
-    }) = servers_resp.meta
-    {
+    let last_page = servers_resp
+        .meta
+        .map(|meta| meta.pagination)
+        .flatten()
+        .map(|pagination| pagination.last_page)
+        .flatten();
+    if let Some(last_page) = last_page {
         for i in 2..=last_page {
             let mut servers_resp = list_servers(
                 &hcloud_config,
