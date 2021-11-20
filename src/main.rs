@@ -225,7 +225,6 @@ async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>
     let last_page = servers_resp
         .meta
         .map(|meta| meta.pagination)
-        .flatten()
         .map(|pagination| pagination.last_page)
         .flatten();
     if let Some(last_page) = last_page {
@@ -252,20 +251,22 @@ async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>
 
 fn build_server_template_context(server: &Server) -> tera::Context {
     let mut context = tera::Context::new();
-    context.insert("ipv4", &server.public_net.ipv4.ip.to_string());
-    context.insert(
-        "ipv6",
-        &server
-            .public_net
-            .ipv6
-            .ip
-            .parse::<Ipv6Net>()
-            .unwrap()
-            .hosts()
-            .nth(1)
-            .unwrap()
-            .to_string(),
-    );
+    if let Some(ipv4) = &server.public_net.ipv4 {
+        context.insert("ipv4", &ipv4.ip.to_string());
+    }
+    if let Some(ipv6) = &server.public_net.ipv6 {
+        context.insert(
+            "ipv6",
+            &ipv6
+                .ip
+                .parse::<Ipv6Net>()
+                .unwrap()
+                .hosts()
+                .nth(1)
+                .unwrap()
+                .to_string(),
+        );
+    }
     context.insert("hostname", &server.name);
     context.insert("labels", &server.labels);
     context
