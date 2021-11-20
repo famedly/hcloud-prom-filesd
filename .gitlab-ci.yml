@@ -1,76 +1,27 @@
+include:
+  - project: 'famedly/company/devops/templates/ci-cd'
+    ref: 'rust-v1'
+    file: '/rust.yml'
+  - project: 'famedly/company/devops/templates/ci-cd'
+    ref: 'docker-v1'
+    file: '/docker.yml'
+
 stages:
   - test
   - build
-  - docker
+  - deploy
 
-cargo-test:
-  stage: test
-  image: rust:latest
-  cache:
-    paths:
-      - target/
-    key: build_cache
-  before_script:
-    - apt-get update -yqq
-    - apt-get install -yqq --no-install-recommends build-essential
-    - rustup component add clippy
-    - rustup component add rustfmt
-  script:
-    - rustc --version && cargo --version  # Print version info for debugging
-    - cargo fmt -- --check
-    - cargo check
-    - cargo clippy
-    - cargo test --all --verbose
+cargo-check:
+  extends: .cargo_check
 
 cargo-build:
-  stage: build
-  image: rust:latest
-  cache:
-    paths:
-      - target/
-    key: build_cache
-  before_script:
-    - apt-get update -yqq
-    - apt-get install -yqq --no-install-recommends build-essential libssl-dev
-    - rustup component add clippy
-    - rustup component add rustfmt
-  script:
-    - rustc --version && cargo --version  # Print version info for debugging
-    - cargo build --release
-    - mv config.sample.yaml ./target/release/config.toml
-  artifacts:
-    paths:
-      - target/release/
+  extends: .cargo_build
 
-.docker: &docker_template
-  image: docker:latest
-  stage: docker
-  services:
-    - docker:dind
-  before_script:
-    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+docker_releases:
+  extends: .docker_releases
 
-docker-branches:
-  <<: *docker_template
-  rules:
-    - if: '$CI_COMMIT_BRANCH'
-  script:
-    - docker build --pull -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}" .
-    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}"
+docker_tags:
+  extends: .docker_tags
 
-docker-tags:
-  <<: *docker_template
-  rules:
-    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /^v\d+\.\d+\.\d+$/'
-  script:
-    - docker build --pull -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" .
-    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
-
-docker-releases:
-  <<: *docker_template
-  rules:
-    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/'
-  script:
-    - docker build --pull -t "${CI_REGISTRY_IMAGE}:latest" -t "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" .
-    - docker push "${CI_REGISTRY_IMAGE}:latest"
-    - docker push "${CI_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+docker_branches:
+  extends: .docker_branches
