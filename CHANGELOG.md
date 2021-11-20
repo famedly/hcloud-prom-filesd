@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [v0.3.1] - 2021-11-20
+ - dependency bump, which fixes a few upstream issues
+ - CI refactoring to use our CI templates
+ - fix a few lints and warnings, reformat code
 
 ## [v0.3.0] - 2021-04-16
  - rework fan-out filtering to include negated label values and empty labels
