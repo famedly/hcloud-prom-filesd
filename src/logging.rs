@@ -1,6 +1,3 @@
-use chrono;
-use fern;
-
 pub(crate) fn setup_logging(level: log::LevelFilter) {
     match fern::Dispatch::new()
         .format(|out, message, record| {

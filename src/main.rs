@@ -87,7 +87,7 @@ async fn main() -> anyhow::Result<()> {
                 std::fs::write(path, sd_content.as_bytes())?;
                 for filter_list in &config.filters {
                     let additional_outputs =
-                        fan_out_entries(entries.to_vec(), &filter_list, &config.output_folder);
+                        fan_out_entries(entries.to_vec(), filter_list, &config.output_folder);
                     for (path, entries) in additional_outputs {
                         let path = std::path::Path::new(&path);
                         std::fs::create_dir_all(path.parent().context(
@@ -156,7 +156,7 @@ fn fan_out_entries(
                 };
                 ret_val.extend(fan_out_entries(entries, &filters[1..], &new_path));
             }
-            return ret_val;
+            ret_val
         }
     }
 }
@@ -178,11 +178,10 @@ impl LabelGroup {
                 groups.push(LabelGroup::Unset);
             }
             Some(ref value) => {
-                if value == "" {
-                    groups.push(LabelGroup::Set);
+                groups.push(LabelGroup::Set);
+                if value.is_empty() {
                     groups.push(LabelGroup::Empty);
                 } else {
-                    groups.push(LabelGroup::Set);
                     groups.push(LabelGroup::Value(value.to_string()));
                     groups.append(
                         &mut values
@@ -280,7 +279,7 @@ fn filter_labels(
         lazy_static::lazy_static! {
             static ref RE: Regex = Regex::new("^[a-zA-Z_][a-zA-Z0-9_]*$").unwrap();
         }
-        let is_match = RE.is_match(&k);
+        let is_match = RE.is_match(k);
         if !is_match {
             log::warn!(
                 "Label key {} on host {} is not a valid label key \
