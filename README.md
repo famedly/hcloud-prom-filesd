@@ -18,7 +18,7 @@ Then run `hcloud-prom-filesd --config path/to/config.yaml`.
 ### Filters
 
 Usually, your hosts are not 100% identical and need slightly different
-monitoring per host/set of hosts. To accomodate this, you can use
+monitoring per host/set of hosts. To accommodate this, you can use
 `hcloud-prom-filesd` to filter based on labels. In the config file, set up
 `filters` like this:
 

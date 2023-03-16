@@ -80,7 +80,7 @@ async fn main() -> anyhow::Result<()> {
             let new_hash = hasher.finish();
 
             if hash != new_hash {
-                log::info!("services changed, attemting to write new sd file");
+                log::info!("services changed, attempting to write new sd file");
                 let path = &format!("{}/all.json", &config.output_folder);
                 let path = std::path::Path::new(path);
                 std::fs::create_dir_all(
