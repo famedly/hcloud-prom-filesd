@@ -3,6 +3,7 @@ use log::LevelFilter;
 use serde::Deserialize;
 
 use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -20,7 +21,7 @@ pub struct Project {
     pub labels: HashMap<String, String>,
 }
 
-pub(crate) fn read_conf(path: &str) -> Result<Config> {
+pub(crate) fn read_conf<P: AsRef<Path>>(path: P) -> Result<Config> {
     let conf_file = std::fs::read_to_string(path).context("Couldn't read config file")?;
     serde_yaml::from_str(&conf_file).context("Couldn't parse config file")
 }

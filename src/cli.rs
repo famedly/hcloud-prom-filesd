@@ -1,12 +1,11 @@
-use clap::{clap_app, crate_authors, crate_description, crate_name, crate_version};
+use std::path::PathBuf;
 
-pub(crate) fn setup_cli() -> clap::ArgMatches<'static> {
-    clap_app!(myapp =>
-        (name: crate_name!())
-        (version: crate_version!())
-        (author: crate_authors!())
-        (about: crate_description!())
-        (@arg config: -c --config +takes_value "Set config file path")
-    )
-    .get_matches()
+use clap::{Parser, ValueHint};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+pub(crate) struct Cli {
+    /// Sets a custom config file
+    #[arg(short, long, value_name = "FILE", value_hint = ValueHint::FilePath)]
+    pub(crate) config: Option<PathBuf>,
 }

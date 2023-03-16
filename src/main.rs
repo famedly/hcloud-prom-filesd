@@ -20,6 +20,7 @@ use regex::Regex;
 use std::{
     collections::{hash_map::DefaultHasher, HashMap},
     hash::{Hash, Hasher},
+    path::PathBuf,
 };
 
 use log::trace;
@@ -28,10 +29,12 @@ use ipnet::Ipv6Net;
 
 use itertools::Itertools;
 
+use clap::Parser;
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let cli_matches = cli::setup_cli();
-    let config = read_conf(cli_matches.value_of("config").unwrap_or("./config.yaml"))
+    let cli = cli::Cli::parse();
+    let config = read_conf(cli.config.unwrap_or(PathBuf::from("./config.yaml")))
         .context("couldn't read config file")?;
     logging::setup_logging(config.log_level.unwrap_or(log::LevelFilter::Warn));
 
