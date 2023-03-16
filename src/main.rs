@@ -129,8 +129,7 @@ fn fan_out_entries(
             let name = &filters[0];
             let values: Vec<String> = entries
                 .iter()
-                .map(|o| o.labels.get(name).map(|o| o.to_string()))
-                .flatten()
+                .filter_map(|o| o.labels.get(name).map(|o| o.to_string()))
                 .dedup()
                 .collect();
             let mut value_entries: HashMap<LabelGroup, Vec<prometheus::FileSdEntry>> =
@@ -224,8 +223,7 @@ async fn load_server_list(token: &str, name: &str) -> anyhow::Result<Vec<Server>
     let last_page = servers_resp
         .meta
         .map(|meta| meta.pagination)
-        .map(|pagination| pagination.last_page)
-        .flatten();
+        .and_then(|pagination| pagination.last_page);
     if let Some(last_page) = last_page {
         for i in 2..=last_page {
             let mut servers_resp = list_servers(
